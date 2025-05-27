@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import io from 'socket.io-client';
-import { AlertTriangle, ShieldCheck, ShieldOff, Zap, ListChecks, Loader2, Terminal } from 'lucide-react';
+// import io from 'socket.io-client'; // Socket.io not used in current setup, can be added later
+import { AlertTriangle, ShieldCheck, ShieldOff, Zap, ListChecks, Loader2, Terminal, Activity, Eye } from 'lucide-react'; // Added Activity, Eye
 
 // API base URL - now using Next.js proxy
 const API_BASE_URL = '/api';
@@ -16,12 +16,11 @@ export default function DashboardPage() {
   const [isLoadingAlert, setIsLoadingAlert] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch logs and poll alerts functions moved to top-level
   const fetchLogs = async () => {
     setIsLoadingLogs(true);
     try {
       const response = await axios.get(`${API_BASE_URL}/logs`);
-      setLogs(response.data);
+      setLogs(response.data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))); // Sort logs by newest first
       setError(null);
     } catch (err) {
       console.error('Error fetching logs:', err);
@@ -32,175 +31,174 @@ export default function DashboardPage() {
   };
 
   const pollAlerts = async () => {
+    // setIsLoadingAlert(true); // Only set true on initial load
     try {
       const response = await axios.get(`${API_BASE_URL}/latest-alert`);
       if (response.data && response.data.id) {
-        setLatestAlert(response.data);
+        // Only update if the alert is new or different
+        if (!latestAlert || latestAlert.id !== response.data.id) {
+          setLatestAlert(response.data);
+        }
       }
       setError(null);
     } catch (err) {
       console.error('Error polling for alerts:', err);
+      // Avoid setting error if it's just a poll failing, could be transient
     }
-    setIsLoadingAlert(false);
+    setIsLoadingAlert(false); // Ensure this is set false after first attempt
   };
 
-  // useEffect to fetch logs and poll alerts on mount
   useEffect(() => {
     fetchLogs();
-    pollAlerts();
-    const intervalId = setInterval(pollAlerts, 5000);
+    pollAlerts(); // Initial poll
+    const intervalId = setInterval(pollAlerts, 3000); // Poll more frequently
     return () => {
       clearInterval(intervalId);
     };
-  }, []);
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
 
 
   const handleTriggerDetection = async () => {
-    setDetectionStatus('Scanning...');
+    setDetectionStatus('Scanning Network...');
     setError(null);
     try {
-      const response = await axios.post(`${API_BASE_URL}/trigger-detection`); // Path is now relative to /api
-      setDetectionStatus(response.data.message || 'Scan initiated. Check logs for updates.');
-      // After triggering, poll for new alerts/logs to reflect changes
-      pollAlerts();
-      fetchLogs(); // Re-fetch logs to see if new predictions are there
+      const response = await axios.post(`${API_BASE_URL}/trigger-detection`);
+      setDetectionStatus(response.data.message || 'Scan initiated. Monitoring for threats...');
+      // After triggering, immediately poll for new alerts/logs to reflect changes
+      setTimeout(() => { // Add a small delay to allow backend to process
+        pollAlerts();
+        fetchLogs();
+      }, 1500);
     } catch (err) {
       console.error('Error triggering detection:', err);
-      console.error('Full error object:', err); // Added for detailed logging
-      if (err.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        console.error('Error response data:', err.response.data); // Added for detailed logging
-        console.error('Error response status:', err.response.status);
-        console.error('Error response headers:', err.response.headers);
-      } else if (err.request) {
-        // The request was made but no response was received
-        console.error('Error request data:', err.request); // Added for detailed logging
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        console.error('Error message:', err.message); // Added for detailed logging
-      }
-      const errorMessage = err.response?.data?.message || 'Failed to trigger detection. Backend might be unavailable.';
+      const errorMessage = err.response?.data?.message || 'Failed to trigger detection. Backend might be offline or unresponsive.';
       setDetectionStatus(`Scan Failed: ${errorMessage}`);
       setError(errorMessage);
     }
-    // Status will be updated by backend or subsequent polls, or reset if needed
-    // setTimeout(() => setDetectionStatus('Idle'), 7000); // Reset status after a while if no other update
+    // Reset status after a while if no other update, or let backend events update it
+    // setTimeout(() => setDetectionStatus('Idle'), 10000);
   };
 
-  const getSeverityClass = (severity) => {
+  const getSeverityStyles = (severity) => {
     switch (severity?.toLowerCase()) {
-      case 'critical': return 'text-red-400 border-red-400';
-      case 'high': return 'text-orange-400 border-orange-400';
-      case 'medium': return 'text-yellow-400 border-yellow-400';
-      case 'low': return 'text-blue-400 border-blue-400';
-      default: return 'text-gray-400 border-gray-400';
+      case 'critical': return { text: 'text-error', border: 'border-error', bg: 'bg-error/20', pillBg: 'bg-error', pillText: 'text-white' };
+      case 'high': return { text: 'text-warning', border: 'border-warning', bg: 'bg-warning/20', pillBg: 'bg-warning', pillText: 'text-black' };
+      case 'medium': return { text: 'text-yellow-400', border: 'border-yellow-400', bg: 'bg-yellow-400/20', pillBg: 'bg-yellow-400', pillText: 'text-black' };
+      case 'low': return { text: 'text-blue-400', border: 'border-blue-400', bg: 'bg-blue-400/20', pillBg: 'bg-blue-400', pillText: 'text-white' };
+      default: return { text: 'text-gray-400', border: 'border-gray-500', bg: 'bg-gray-700/20', pillBg: 'bg-gray-500', pillText: 'text-white' };
     }
   };
 
   return (
-    <div className="space-y-8 font-mono">
+    <div className="space-y-8 font-mono"> {/* Removed bg-dynamic-gradient from here */}
       {error && (
-        <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-md relative shadow-md" role="alert">
-          <strong className="font-bold">Error: </strong>
+        <div className="bg-error/30 border border-error text-text-primary px-4 py-3 rounded-md relative shadow-md animate-pulse" role="alert">
+          <strong className="font-bold text-glow">SYSTEM ALERT: </strong>
           <span className="block sm:inline">{error}</span>
         </div>
       )}
 
-      {/* Live Alert Section */}
-      <section className="bg-dark-surface p-6 rounded-lg shadow-xl border border-accent-glow animate-pulse">
-        <h2 className="text-2xl font-semibold text-accent-glow mb-4 flex items-center">
-          <Zap size={28} className="mr-3" /> Live Threat Status
+      {/* Live Alert Section - Enhanced Styling */}
+      <section className="bg-dark-surface/80 backdrop-blur-sm p-6 rounded-xl shadow-xl border border-dark-border card-hover-effect animate-subtle-float">
+        <h2 className="text-2xl font-semibold text-glow mb-4 flex items-center">
+          <Activity size={28} className="mr-3 text-accent-glow" /> Live Threat Feed
         </h2>
         {isLoadingAlert ? (
           <div className="flex items-center text-text-secondary">
-            <Loader2 size={24} className="animate-spin mr-2" /> Initializing live feed...
+            <Loader2 size={24} className="animate-spin mr-2 text-accent-glow" /> Initializing live threat matrix...
           </div>
         ) : latestAlert ? (
-          <div className={`border-l-4 p-4 rounded-md bg-opacity-20 ${getSeverityClass(latestAlert.severity)} bg-gray-700`}>
+          <div className={`border-l-4 p-4 rounded-md ${getSeverityStyles(latestAlert.severity).bg} ${getSeverityStyles(latestAlert.severity).border}`}>
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-bold text-lg">{latestAlert.type}</p>
+                <p className={`font-bold text-lg ${getSeverityStyles(latestAlert.severity).text}`}>{latestAlert.type}</p>
                 <p className="text-sm text-text-secondary">
-                  {new Date(latestAlert.timestamp).toLocaleString()} - Source: {latestAlert.source_ip}
+                  {new Date(latestAlert.timestamp).toLocaleString()} | Source: {latestAlert.source_ip}
                 </p>
               </div>
-              <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getSeverityClass(latestAlert.severity).replace('border-', 'bg-').replace('text-', 'text-black ')}`}>
-                {latestAlert.severity}
+              <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getSeverityStyles(latestAlert.severity).pillBg} ${getSeverityStyles(latestAlert.severity).pillText}`}>
+                {latestAlert.severity?.toUpperCase()}
               </span>
             </div>
-            {latestAlert.details && <p className="mt-2 text-sm">{latestAlert.details}</p>}
+            {latestAlert.details && <p className="mt-2 text-sm text-text-primary whitespace-pre-wrap">{latestAlert.details}</p>}
           </div>
         ) : (
-          <div className="flex items-center text-green-400">
-            <ShieldCheck size={24} className="mr-2" /> System Secure. No active threats.
+          <div className="flex items-center text-success">
+            <ShieldCheck size={24} className="mr-2" /> System Nominal. All channels clear.
           </div>
         )}
       </section>
 
-      {/* Manual Control Panel */}
-      <section className="bg-dark-surface p-6 rounded-lg shadow-lg border border-dark-border">
+      {/* Manual Control Panel - Enhanced Styling */}
+      <section className="bg-dark-surface/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-dark-border card-hover-effect">
         <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center">
-          <Terminal size={24} className="mr-3" /> Manual System Control
+          <Terminal size={24} className="mr-3 text-accent-glow" /> System Operations Console
         </h2>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4">
           <button
             onClick={handleTriggerDetection}
-            disabled={detectionStatus === 'Scanning...'}
-            className="px-6 py-2 bg-accent-glow text-black font-semibold rounded-md hover:bg-opacity-80 hover:shadow-glow-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            disabled={detectionStatus.includes('Scanning')}
+            className="px-6 py-3 bg-accent-glow text-black font-bold rounded-lg hover:bg-opacity-80 hover:shadow-glow-md transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed flex items-center text-sm shadow-md active:scale-95 w-full sm:w-auto"
           >
-            {detectionStatus === 'Scanning...' ? (
+            {detectionStatus.includes('Scanning') ? (
               <Loader2 size={20} className="animate-spin mr-2" />
             ) : (
               <Zap size={20} className="mr-2" />
             )}
-            Trigger Manual Scan
+            Initiate Network Sweep
           </button>
-          <p className="text-text-secondary italic">
-            Status: <span className={`${detectionStatus.includes('Failed') ? 'text-red-400' : detectionStatus === 'Scanning...' ? 'text-yellow-400' : 'text-green-400'}`}>{detectionStatus}</span>
+          <p className="text-text-secondary italic text-sm">
+            Status: <span className={`font-semibold ${detectionStatus.includes('Failed') ? 'text-error' : detectionStatus.includes('Scanning') ? 'text-warning animate-pulse' : 'text-success'}`}>{detectionStatus}</span>
           </p>
         </div>
       </section>
 
-      {/* Logs Section */}
-      <section className="bg-dark-surface p-6 rounded-lg shadow-lg border border-dark-border">
-        <h2 className="text-xl font-semibold text-text-primary mb-4 flex items-center">
-          <ListChecks size={24} className="mr-3" /> Historical Intrusion Logs
-        </h2>
-        {isLoadingLogs ? (
+      {/* Logs Section - Enhanced Styling */}
+      <section className="bg-dark-surface/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-dark-border card-hover-effect">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-semibold text-text-primary flex items-center">
+            <ListChecks size={24} className="mr-3 text-accent-glow" /> Historical Event Log
+          </h2>
+          <button onClick={fetchLogs} className="text-xs text-accent-glow hover:underline p-1 rounded flex items-center disabled:opacity-50" disabled={isLoadingLogs}>
+            {isLoadingLogs ? <Loader2 size={16} className="animate-spin mr-1" /> : <Eye size={16} className="mr-1" />} Refresh Logs
+          </button>
+        </div>
+        {isLoadingLogs && logs.length === 0 ? (
           <div className="flex items-center text-text-secondary">
-            <Loader2 size={24} className="animate-spin mr-2" /> Loading logs...
+            <Loader2 size={24} className="animate-spin mr-2 text-accent-glow" /> Loading event archives...
           </div>
         ) : logs.length > 0 ? (
-          <div className="overflow-x-auto max-h-96">
+          <div className="overflow-x-auto max-h-[500px] rounded-lg border border-dark-border scrollbar-thin scrollbar-thumb-dark-border scrollbar-track-dark-surface">
             <table className="w-full text-sm text-left text-text-secondary">
-              <thead className="text-xs text-text-primary uppercase bg-gray-700 bg-opacity-40">
+              <thead className="text-xs text-text-primary uppercase bg-dark-surface sticky top-0 z-10 backdrop-blur-sm">
                 <tr>
-                  <th scope="col" className="px-6 py-3">Timestamp</th>
-                  <th scope="col" className="px-6 py-3">Type</th>
-                  <th scope="col" className="px-6 py-3">Severity</th>
-                  <th scope="col" className="px-6 py-3">Source IP</th>
+                  <th scope="col" className="px-4 py-3">Timestamp</th>
+                  <th scope="col" className="px-4 py-3">Event Type</th>
+                  <th scope="col" className="px-4 py-3">Severity</th>
+                  <th scope="col" className="px-4 py-3">Source IP</th>
+                  <th scope="col" className="px-4 py-3">Details</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-dark-border/50">
                 {logs.map((log) => (
-                  <tr key={log.id} className={`border-b border-dark-border hover:bg-gray-700 hover:bg-opacity-20 ${getSeverityClass(log.severity)}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
-                    <td className="px-6 py-4">{log.type}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getSeverityClass(log.severity).replace('border-', 'bg-').replace('text-', 'text-black ')}`}>
-                        {log.severity}
+                  <tr key={log.id} className={`hover:bg-accent-secondary/20 transition-colors duration-150 ${getSeverityStyles(log.severity).bg}`}>
+                    <td className="px-4 py-3 whitespace-nowrap">{new Date(log.timestamp).toLocaleString()}</td>
+                    <td className="px-4 py-3">{log.type}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 text-xs font-bold rounded-full ${getSeverityStyles(log.severity).pillBg} ${getSeverityStyles(log.severity).pillText}`}>
+                        {log.severity?.toUpperCase()}
                       </span>
                     </td>
-                    <td className="px-6 py-4">{log.source_ip}</td>
+                    <td className="px-4 py-3 font-mono">{log.source_ip}</td>
+                    <td className="px-4 py-3 text-xs max-w-xs truncate hover:whitespace-normal hover:max-w-none" title={log.details}>{log.details || 'N/A'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <div className="flex items-center text-text-secondary">
-            <ShieldOff size={24} className="mr-2" /> No historical logs found or unable to load.
+          <div className="flex items-center text-text-secondary border border-dashed border-dark-border p-6 rounded-lg justify-center">
+            <ShieldOff size={24} className="mr-2" /> No historical events recorded or system is initializing.
           </div>
         )}
       </section>

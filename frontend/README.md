@@ -1,6 +1,6 @@
 # IntruderGuard Frontend
 
-This is the frontend for the IntruderGuard application.
+This is the frontend for the IntruderGuard application, featuring a dynamic and modern dark-themed user interface for monitoring network security.
 
 ## Prerequisites
 

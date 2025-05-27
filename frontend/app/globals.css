@@ -3,9 +3,16 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 224, 224, 224; /* text-primary */
-  --background-start-rgb: 10, 15, 26; /* dark-bg */
-  --background-end-rgb: 16, 22, 35; /* dark-surface */
+  --foreground-rgb: 230, 230, 240; /* Lighter for better contrast on dark backgrounds */
+  --background-start-rgb: 10, 10, 20; /* Deep dark blue/purple */
+  --background-end-rgb: 0, 0, 0;
+  --surface-color-rgb: 20, 20, 30; /* Slightly lighter dark blue/purple for cards/surfaces */
+  --border-color-rgb: 50, 50, 70; /* Muted border color */
+  --accent-glow-rgb: 0, 220, 255; /* Bright cyan for glow effects */
+  --accent-secondary-rgb: 120, 50, 220; /* Deep purple for secondary accents */
+  --success-rgb: 0, 200, 100;
+  --warning-rgb: 255, 180, 0;
+  --error-rgb: 255, 80, 80;
 }
 
 body {
@@ -16,30 +23,68 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
-  font-family: var(--font-geist-mono), monospace; /* Terminal-like font */
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
   }
+
+  .text-glow {
+    text-shadow: 0 0 8px rgba(var(--accent-glow-rgb), 0.7), 0 0 12px rgba(var(--accent-glow-rgb), 0.5);
+  }
+
+  .text-accent-glow {
+    color: rgb(var(--accent-glow-rgb));
+    text-shadow: 0 0 10px rgba(var(--accent-glow-rgb), 0.8), 0 0 15px rgba(var(--accent-glow-rgb), 0.6);
+  }
+
+  .bg-dynamic-gradient {
+    background: radial-gradient(ellipse at top left, rgba(var(--accent-secondary-rgb), 0.3) 0%, transparent 40%),
+                radial-gradient(ellipse at bottom right, rgba(var(--accent-glow-rgb), 0.2) 0%, transparent 50%);
+  }
+
+  /* Removed .bg-animated-gradient and .animate-gradient-bg as they are no longer used */
+
+  .card-hover-effect {
+    @apply transition-all duration-300 ease-in-out;
+  }
+  .card-hover-effect:hover {
+    @apply transform scale-[1.02] shadow-glow-md;
+  }
+
+  .animate-subtle-float {
+    animation: subtle-float 6s ease-in-out infinite;
+  }
 }
 
-/* Custom scrollbar for a more integrated dark theme feel */
+/* Custom Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #101623; /* dark-surface */
+  background: rgb(var(--surface-color-rgb));
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #20283a; /* dark-border */
-  border-radius: 4px;
+  background: rgba(var(--accent-glow-rgb), 0.6);
+  border-radius: 10px;
+  border: 1px solid rgba(var(--border-color-rgb), 0.5);
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #00ffff; /* accent-glow */
+  background: rgba(var(--accent-glow-rgb), 0.8);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }

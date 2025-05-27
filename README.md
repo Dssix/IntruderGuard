@@ -1,6 +1,6 @@
 # IntruderGuard - Network Intrusion Detection System
 
-This project consists of a Python backend for network traffic analysis and intrusion detection, and a Next.js frontend for displaying alerts and system status.
+This project consists of a Python backend for network traffic analysis and intrusion detection, and a Next.js frontend with a dynamic, dark-themed tactical interface for displaying alerts and system status.
 
 ## Project Structure
 
@@ -127,9 +127,9 @@ Open your browser and go to `http://localhost:3000` to view the IntruderGuard Ta
 
 (Located in the `frontend` directory)
 
-*   `app/page.js`: Main dashboard page component.
+*   `app/page.js`: Main dashboard page component, featuring dynamic UI elements and real-time data display.
 *   `app/layout.js`: Root layout for the application.
-*   `tailwind.config.js`, `globals.css`: Styling configurations.
+*   `tailwind.config.js`, `globals.css`: Styling configurations, implementing a dark, futuristic theme with dynamic effects.
 *   `next.config.mjs`: Next.js configuration, including API proxy.
 
 ## Troubleshooting
