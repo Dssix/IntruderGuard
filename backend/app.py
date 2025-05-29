@@ -52,35 +52,51 @@ def trigger_detection():
     # 1. Run t18.py to capture live data
     t18_process = run_script('t18.py')
     if t18_process:
-        t18_stdout, t18_stderr = t18_process.communicate() # Wait for t18.py to finish
-        print(f"t18.py stdout: {t18_stdout}")
-        if t18_stderr:
-            print(f"t18.py stderr: {t18_stderr}")
-            # return jsonify({'status': 'error', 'message': 'Error during packet capture.', 'details': t18_stderr}), 500
-        # Check if live_data.csv was created
-        live_data_path = os.path.join(DATA_DIR, 'live_data.csv')
-        if not os.path.exists(live_data_path):
-            print(f"Error: {live_data_path} not found after t18.py execution.")
-            return jsonify({'status': 'error', 'message': 'Packet capture script did not produce live_data.csv.'}), 500
-        print(f"t18.py finished, {live_data_path} should exist.")
+        try:
+            t18_stdout, t18_stderr = t18_process.communicate(timeout=60) # Wait for t18.py to finish with a 60s timeout
+            print(f"t18.py stdout: {t18_stdout}")
+            if t18_stderr:
+                print(f"t18.py stderr: {t18_stderr}")
+            # Check if live_data.csv was created
+            live_data_path = os.path.join(DATA_DIR, 'live_data.csv')
+            if not os.path.exists(live_data_path):
+                print(f"Error: {live_data_path} not found after t18.py execution.")
+                return jsonify({'status': 'error', 'message': 'Packet capture script did not produce live_data.csv.'}), 500
+            print(f"t18.py finished, {live_data_path} should exist.")
+        except subprocess.TimeoutExpired:
+            t18_process.kill()
+            t18_stdout, t18_stderr = t18_process.communicate() # to get any output
+            print(f"t18.py timed out. stdout: {t18_stdout}, stderr: {t18_stderr}")
+            return jsonify({'status': 'error', 'message': 'Packet capture script timed out after 60 seconds.'}), 500
+        except Exception as e: # Catch other potential errors during communicate
+            print(f"Error communicating with t18.py: {e}")
+            return jsonify({'status': 'error', 'message': f'Error during packet capture: {str(e)}'}), 500
     else:
         return jsonify({'status': 'error', 'message': 'Failed to start packet capture script.'}), 500
 
     # 2. Run predict_new.py to process live_data.csv
     predict_process = run_script('predict_new.py')
     if predict_process:
-        predict_stdout, predict_stderr = predict_process.communicate() # Wait for predict_new.py
-        print(f"predict_new.py stdout: {predict_stdout}")
-        if predict_stderr:
-            print(f"predict_new.py stderr: {predict_stderr}")
-            # return jsonify({'status': 'error', 'message': 'Error during prediction.', 'details': predict_stderr}), 500
-        # Check if live_predictions.csv was created
-        live_predictions_path = os.path.join(DATA_DIR, 'live_predictions.csv')
-        if not os.path.exists(live_predictions_path):
-            print(f"Error: {live_predictions_path} not found after predict_new.py execution.")
-            return jsonify({'status': 'error', 'message': 'Prediction script did not produce live_predictions.csv.'}), 500
-        print(f"predict_new.py finished, {live_predictions_path} should exist.")
-        return jsonify({'status': 'success', 'message': 'Detection cycle completed. Check logs for results.', 'output': predict_stdout}), 200
+        try:
+            predict_stdout, predict_stderr = predict_process.communicate(timeout=60) # Wait for predict_new.py with a 60s timeout
+            print(f"predict_new.py stdout: {predict_stdout}")
+            if predict_stderr:
+                print(f"predict_new.py stderr: {predict_stderr}")
+            # Check if live_predictions.csv was created
+            live_predictions_path = os.path.join(DATA_DIR, 'live_predictions.csv')
+            if not os.path.exists(live_predictions_path):
+                print(f"Error: {live_predictions_path} not found after predict_new.py execution.")
+                return jsonify({'status': 'error', 'message': 'Prediction script did not produce live_predictions.csv.'}), 500
+            print(f"predict_new.py finished, {live_predictions_path} should exist.")
+            return jsonify({'status': 'success', 'message': 'Detection cycle completed. Check logs for results.', 'output': predict_stdout}), 200
+        except subprocess.TimeoutExpired:
+            predict_process.kill()
+            predict_stdout, predict_stderr = predict_process.communicate() # to get any output
+            print(f"predict_new.py timed out. stdout: {predict_stdout}, stderr: {predict_stderr}")
+            return jsonify({'status': 'error', 'message': 'Prediction script timed out after 60 seconds.'}), 500
+        except Exception as e: # Catch other potential errors during communicate
+            print(f"Error communicating with predict_new.py: {e}")
+            return jsonify({'status': 'error', 'message': f'Error during prediction: {str(e)}'}), 500
     else:
         return jsonify({'status': 'error', 'message': 'Failed to start prediction script.'}), 500
 
